@@ -1,0 +1,60 @@
+name: 'Windmill CLI'
+description: 'Install the Windmill CLI (wmill) and optionally run a wmill command, e.g. sync push, against a Windmill workspace.'
+author: 'Windmill Labs'
+branding:
+  icon: 'wind'
+  color: 'blue'
+
+inputs:
+  command:
+    description: 'Arguments passed to wmill, for example "sync push --yes". Split on whitespace and never evaluated by a shell (no quotes, variables or globs). Leave empty to only install wmill.'
+    required: false
+    default: ''
+  token:
+    description: 'Windmill API token. Store it as a secret. When set, --token, --workspace and --base-url are appended to the command.'
+    required: false
+    default: ''
+  workspace:
+    description: 'Windmill workspace id. Required when token is set.'
+    required: false
+    default: ''
+  base-url:
+    description: 'Base URL of the Windmill instance. Set it for self-hosted instances.'
+    required: false
+    default: 'https://app.windmill.dev'
+  cli-version:
+    description: 'Version of the windmill-cli npm package. Pin it (e.g. 1.868.0) for reproducible CI; "latest" tracks new releases.'
+    required: false
+    default: 'latest'
+  node-version:
+    description: 'Node.js version used to run wmill.'
+    required: false
+    default: '24'
+  working-directory:
+    description: 'Directory in which to run wmill (the folder holding wmill.yaml).'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install wmill
+      shell: bash
+      env:
+        WMILL_CLI_VERSION: ${{ inputs.cli-version }}
+      run: npm install -g "windmill-cli@${WMILL_CLI_VERSION}"
+
+    - name: Run wmill
+      if: ${{ inputs.command != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        WMILL_COMMAND: ${{ inputs.command }}
+        WMILL_TOKEN: ${{ inputs.token }}
+        WMILL_WORKSPACE: ${{ inputs.workspace }}
+        WMILL_BASE_URL: ${{ inputs.base-url }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/run.sh"

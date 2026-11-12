@@ -1,0 +1,63 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Argument handling of scripts/run.sh
+        shell: bash
+        run: bash tests/run_test.sh
+
+  action:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install a pinned CLI and run a command
+        uses: ./
+        with:
+          command: version
+          cli-version: 1.868.0
+      - name: wmill is on PATH at the pinned version
+        shell: bash
+        run: |
+          out="$(wmill version)"
+          echo "$out"
+          grep -qx 'CLI version: 1.868.0' <<< "$out"
+      - name: Install only (no command)
+        uses: ./
+        with:
+          cli-version: 1.868.0
+
+  # Runs only where the WMILL_TEST_TOKEN secret exists (not on fork PRs).
+  # Use a token for a disposable test workspace; the command is read-only.
+  live:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.WMILL_TEST_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: List scripts of the test workspace
+        if: env.HAS_TOKEN == 'true'
+        uses: ./
+        with:
+          command: script list
+          token: ${{ secrets.WMILL_TEST_TOKEN }}
+          workspace: ${{ vars.WMILL_TEST_WORKSPACE }}
+          base-url: ${{ vars.WMILL_TEST_BASE_URL || 'https://app.windmill.dev' }}
+          cli-version: 1.868.0
